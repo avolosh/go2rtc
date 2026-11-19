@@ -241,9 +241,10 @@ func wakeUpCamera(url *url.URL, model string) error {
 	if strings.HasPrefix(model, "midr.") {
 		res, err := cloudUserRequest(url.User, "/home/rpc/"+did, `{"id":1,"method":"wakeup_host","params":{}}`)
 		log.Debug().Err(err).Msgf("xiaomi: wakeup_host %s", res)
-		params := fmt.Sprintf(`{"params":{"did":"%s","siid":2,"aiid":3,"in":[]}}`, did)
-		res, err = cloudUserRequest(url.User, "/miotspec/action", params)
-		log.Debug().Err(err).Msgf("xiaomi: miot action 2.3 %s", res)
+		siid, aiid := midrWakeAction(model)
+		params := fmt.Sprintf(`{"params":{"did":%q,"siid":%d,"aiid":%d,"in":[]}}`, did, siid, aiid)
+		_, err = cloudUserRequest(url.User, "/miotspec/action", params)
+		log.Debug().Err(err).Int("siid", siid).Int("aiid", aiid).Msg("xiaomi: MIoT wake action")
 		// without a pause miss_get_vendor hangs ~10s on the sleeping camera and fails
 		time.Sleep(3 * time.Second)
 		return err
@@ -252,6 +253,14 @@ func wakeUpCamera(url *url.URL, model string) error {
 	const params = `{"id":1,"method":"wakeup","params":{"video":"1"}}`
 	_, err := cloudUserRequest(url.User, "/home/rpc/"+did, params)
 	return err
+}
+
+func midrWakeAction(model string) (siid, aiid int) {
+	if model == "midr.cateye.sd400" {
+		// The 4 Pro exposes Start P2P Stream on its P2P service.
+		return 10, 1
+	}
+	return 2, 3
 }
 
 func apiXiaomi(w http.ResponseWriter, r *http.Request) {
